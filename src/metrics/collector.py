@@ -182,6 +182,22 @@ class MetricsCollector:
         """JSON-ready metrics for one stage."""
         return self._get(name).to_dict()
 
+    def absorb(self, other: "MetricsCollector", prefix: str) -> None:
+        """Copy another collector's stages into this one under a prefix."""
+        for name, stage in other.stages.items():
+            clone = StageMetrics(
+                name=f"{prefix}{name}",
+                start_iso=stage.start_iso,
+                end_iso=stage.end_iso,
+                runtime_s=stage.runtime_s,
+                counters=dict(stage.counters),
+                values=dict(stage.values),
+                distributions={key: list(values) for key, values in stage.distributions.items()},
+                notes=list(stage.notes),
+            )
+            self.stages[clone.name] = clone
+            self.persist_stage(clone.name)
+
     def persist_stage(self, name: str) -> None:
         """Write a stage metrics file immediately."""
         if self.store is None:
