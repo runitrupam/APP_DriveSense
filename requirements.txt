@@ -1,0 +1,19 @@
+# Core dependencies for DeepSense Video Scene Analyzer
+numpy>=1.26
+pandas>=2.0
+pyyaml>=6.0
+pydantic>=2.5
+psutil>=5.9
+matplotlib>=3.8
+opencv-python-headless>=4.9
+streamlit>=1.32
+pytest>=7.4
+
+# PyTorch is installed separately to allow CPU-only wheels:
+# python3 -m pip install --break-system-packages torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# torch>=2.2
+# torchvision>=0.17
+
+# Optional YOLO detector / tracker backend. The pipeline falls back to a
+# classical motion detector when this is unavailable.
+# ultralytics>=8.1

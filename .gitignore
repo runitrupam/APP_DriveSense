@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.pytest_cache/
+.streamlit/secrets.toml
+.ipynb_checkpoints/
+
+# Run artifacts are large; keep the directory but not its contents.
+outputs/*
+!outputs/.gitkeep
+
+# Model weights downloaded at runtime
+*.pt
+*.onnx

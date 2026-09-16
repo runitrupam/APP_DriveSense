@@ -1,0 +1,84 @@
+pipeline:
+  version: "1.0.0"
+  name: deepsense-video-scene-analyzer
+  seed: 1337
+
+ingestion:
+  copy_input: false
+  ffprobe_timeout_s: 20
+
+frames:
+  blur_threshold: 60.0
+  duplicate_mad_threshold: 1.5
+  duplicate_hash_distance: 2
+
+detection:
+  engine: auto
+  model: yolov8n.pt
+  device: auto
+  confidence_threshold: 0.40
+  iou_threshold: 0.50
+  max_detections: 300
+  input_size: 640
+  class_confidence:
+    default: 0.40
+
+tracking:
+  engine: iou_velocity
+  max_age: 30
+  min_hits: 3
+  iou_match_threshold: 0.25
+  id_switch_iou_threshold: 0.1
+  teleport_distance_ratio: 0.35
+  impossible_speed_ratio: 0.60
+
+road:
+  lane_detection_confidence_threshold: 0.35
+  min_lane_width_px: 40
+  max_lanes: 8
+  hough_threshold: 40
+  hough_min_line_length_ratio: 0.08
+  hough_max_line_gap: 60
+  roi_top_ratio: 0.55
+  canny_low: 60
+  canny_high: 180
+  kernel_size: 5
+
+motion:
+  history_frames: 10
+  stationary_threshold: 5
+  stationary_threshold_ratio: 0.02
+  ego_motion_compensation: true
+  direction_confidence_threshold: 0.30
+
+temporal:
+  lane_change_confirmation_frames: 3
+  object_disappearance_tolerance: 2
+  smoothing_window: 5
+  preserve_confirmed_changes: true
+
+environment:
+  enabled: true
+  min_vegetation_component_px: 900
+  horizon_search_ratio: 0.35
+  building_edge_density_threshold: 0.12
+
+validation:
+  min_detection_confidence: 0.35
+  min_tracking_confidence: 0.30
+  low_confidence_ratio_threshold: 0.6
+  max_objects_for_stability: 400
+  ai_validation:
+    enabled: false
+    provider: none
+
+output:
+  root: outputs
+  save_raw_frames: false
+  save_annotated_frames: true
+  annotated_every_n_frames: 1
+  save_gzipped_final: false
+  zip_after_run: false
+
+logging:
+  level: INFO
