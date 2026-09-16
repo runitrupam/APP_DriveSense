@@ -118,8 +118,12 @@ unique `outputs/RUN_<timestamp>_<uuid>/` directory.
 ### Validation / output
 
 - `final_result` + `decision_reason` + `status`.
+- `src/pipeline/runner.py` is the shared lifecycle API used by the CLI and UI.
+  It creates a unique run, copies the input, runs forward and reverse passes,
+  and finalizes success or failure manifests.
 - Streaming JSONL write per frame (constant memory), JSON array assembled at the
-  end, manifest always written.
+  end, manifest always written. Reverse-pass disagreements are preserved in
+  `validation/validation.jsonl` and each final record's `decision` block.
 - Metrics persisted after each stage; `overall.json` aggregates runtime,
   throughput, peak RSS, model versions, config hash and pipeline version.
 

@@ -42,6 +42,26 @@ def write_json_atomic(path: str | Path, payload: Any) -> Path:
     return target
 
 
+def write_json_array_atomic(path: str | Path, records: Iterable[Any]) -> Path:
+    """Write an iterable as a JSON array without materialising it in memory."""
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(target.suffix + ".tmp")
+    with temporary.open("w", encoding="utf-8") as handle:
+        handle.write("[\n")
+        first = True
+        for record in records:
+            if not first:
+                handle.write(",\n")
+            json.dump(record, handle, ensure_ascii=False, default=_json_default)
+            first = False
+        handle.write("\n]\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(temporary, target)
+    return target
+
+
 def read_json(path: str | Path) -> Any:
     """Read a JSON document."""
     with Path(path).open("r", encoding="utf-8") as handle:
@@ -136,8 +156,15 @@ class RunStore:
         run_id: str | None = None,
         config_hash: str | None = None,
     ) -> "RunStore":
-        """Create a new run directory using a fresh run id unless one is given."""
-        return cls(run_id or make_run_id(), root, config_hash=config_hash)
+        """Create a new run directory, never replacing an existing run."""
+        root_path = Path(root)
+        requested = run_id
+        candidate = requested or make_run_id()
+        while (root_path / candidate).exists():
+            if requested:
+                raise FileExistsError(f"run directory already exists: {root_path / candidate}")
+            candidate = make_run_id()
+        return cls(candidate, root_path, config_hash=config_hash)
 
     def _create_layout(self) -> None:
         self.run_dir.mkdir(parents=True, exist_ok=True)
@@ -161,6 +188,10 @@ class RunStore:
     def write_json(self, subdir: str, name: str, payload: Any) -> Path:
         """Atomically write a JSON document inside a subdirectory."""
         return write_json_atomic(self.path(subdir, name), payload)
+
+    def write_json_array(self, subdir: str, name: str, records: Iterable[Any]) -> Path:
+        """Atomically stream an iterable into a JSON array."""
+        return write_json_array_atomic(self.path(subdir, name), records)
 
     def append_jsonl(self, subdir: str, name: str, record: Any) -> None:
         """Append one record using the managed writer."""

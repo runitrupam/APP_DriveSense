@@ -211,10 +211,16 @@ number of JSON records always equals the number of expected frames.
 ## Tests
 
 ```bash
-python -m pytest tests/unit -q
-python -m pytest tests/integration -q
-python -m pytest -q
+python3 -m pytest tests/unit -q
+python3 -m pytest tests/integration -q
+python3 -m pytest -q
 ```
+
+The reusable runner is `src.pipeline.runner.run_pipeline`. It creates the run
+and input copy before probing the video, so an invalid input still receives a
+failure manifest rather than an ambiguous partial-success result. Forward and
+reverse summaries are compared in `validation/validation.jsonl`; disagreements
+are preserved in each final record's `validation` and `decision` blocks.
 
 Integration tests render a deterministic synthetic road clip, run the full
 pipeline, and assert one JSON record per frame, tracked objects, per-stage

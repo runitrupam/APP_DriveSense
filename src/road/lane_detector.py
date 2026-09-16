@@ -199,8 +199,10 @@ class LaneDetector:
         """Trapezoidal region of interest covering the road ahead."""
         return np.array(
             [
-                [(int(0.02 * width), height - 1), (int(0.98 * width), height - 1)],
-                [(int(0.65 * width), roi_top), (int(0.35 * width), roi_top)],
+                (int(0.02 * width), height - 1),
+                (int(0.98 * width), height - 1),
+                (int(0.65 * width), roi_top),
+                (int(0.35 * width), roi_top),
             ],
             dtype=np.int32,
         )
@@ -221,7 +223,7 @@ class LaneDetector:
         segments: list[tuple[int, int, int, int]] = []
         if lines is None:
             return segments
-        for line in lines[:, 0, :]:
+        for line in np.asarray(lines).reshape(-1, 4):
             x1, y1, x2, y2 = (int(v) for v in line)
             dx = x2 - x1
             dy = y2 - y1
