@@ -525,14 +525,16 @@ class FramePass:
         road: RoadObservation | None,
     ) -> Any:
         """Run the environment stage using detection-derived items."""
+        from src.environment.environment_analyzer import EnvironmentItem
+
         items = []
         for record in outcome.objects:
             item_type = ENVIRONMENT_ITEM_TYPES.get(record.type)
             if item_type is None:
                 continue
             items.append(
-                self.bundle.environment_item_factory(
-                    item_type=item_type,
+                EnvironmentItem(
+                    type=item_type,
                     bbox=record.bbox.model_dump(),
                     confidence=record.confidence.detection,
                     source="detector",
@@ -540,21 +542,6 @@ class FramePass:
                     lane=record.lane,
                 )
             )
-        item_factory = getattr(self.bundle, "environment_item_factory", None)
-        if item_factory is None:
-            from src.environment.environment_analyzer import EnvironmentItem
-
-            items = [
-                EnvironmentItem(
-                    type=item["type"],
-                    bbox=item["bbox"],
-                    confidence=item["confidence"],
-                    source=item["source"],
-                    track_id=item["track_id"],
-                    lane=item["lane"],
-                )
-                for item in items
-            ]
         vanishing_point = road.vanishing_point if road is not None else None
         return self._stage(
             "environment",
