@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,83 @@ from src.output.writer import iter_jsonl, read_json
 from src.pipeline.runner import run_pipeline
 
 OUTPUT_ROOT = Path("outputs")
+
+PIPELINE_STAGES = (
+    ("ingestion", "1. Ingestion", "Probe metadata and prepare the input video."),
+    ("forward", "2. Forward analysis", "Read every frame and run detection, tracking, lanes, motion, and environment analysis."),
+    ("backward", "3. Backward validation", "Read frames in reverse and compare the independent pass with the forward pass."),
+    ("finalization", "4. Finalization", "Write validated JSON/JSONL, metrics, annotations, and the run manifest."),
+)
+STAGE_WEIGHTS = {"forward": 0.45, "backward": 0.45, "finalization": 0.10}
+FINALIZATION_ESTIMATE_SECONDS = 5
+
+
+def _format_duration(seconds: float | None) -> str:
+    """Return a short human-readable duration for the live progress panel."""
+    if seconds is None or seconds < 0:
+        return "calculating…"
+    rounded = max(0, int(seconds))
+    minutes, remainder = divmod(rounded, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}h {minutes:02d}m"
+    if minutes:
+        return f"{minutes}m {remainder:02d}s"
+    return f"{remainder}s"
+
+
+def _overall_progress(stage: str, done: int, total: int) -> float:
+    """Map a stage's frame progress to one monotonic overall progress value."""
+    completed_weight = 0.0
+    for key, _, _ in PIPELINE_STAGES:
+        if key == stage:
+            break
+        completed_weight += STAGE_WEIGHTS.get(key, 0.0)
+    stage_fraction = min(1.0, done / total) if total > 0 else 0.0
+    return min(1.0, completed_weight + STAGE_WEIGHTS.get(stage, 0.0) * stage_fraction)
+
+
+def _render_pipeline_status(st: Any, panel: Any, state: dict[str, Any]) -> None:
+    """Render the checklist and live timing information without changing pipeline state."""
+    stage = state.get("stage")
+    done = int(state.get("done", 0))
+    total = int(state.get("total", 0))
+    elapsed = max(0.0, time.monotonic() - float(state["started"]))
+    rate = done / elapsed if done > 0 and elapsed > 0 else 0.0
+    remaining_frames = max(0, total - done) if total else None
+    eta = None
+    if rate > 0 and remaining_frames is not None:
+        remaining_work = remaining_frames
+        if stage == "forward":
+            remaining_work += total
+        eta = remaining_work / rate + (FINALIZATION_ESTIMATE_SECONDS if stage in {"forward", "backward"} else 0)
+    current_label = next((label for key, label, _ in PIPELINE_STAGES if key == stage), "Preparing")
+
+    with panel.container():
+        st.markdown("#### Live pipeline status")
+        metrics = st.columns(4)
+        metrics[0].metric("Currently running", current_label)
+        metrics[1].metric("Elapsed", _format_duration(elapsed))
+        metrics[2].metric("Frames left in current stage", "—" if remaining_frames is None else f"{remaining_frames:,}")
+        metrics[3].metric("Estimated time left", _format_duration(eta))
+        if rate:
+            st.caption(f"Current throughput: {rate:.1f} frames/sec. The estimate improves as more frames are processed.")
+        else:
+            st.caption("Calculating throughput and estimated completion time…")
+
+        rows = []
+        stage_index = {key: index for index, (key, _, _) in enumerate(PIPELINE_STAGES)}
+        current_index = stage_index.get(stage, -1)
+        for key, label, description in PIPELINE_STAGES:
+            index = stage_index[key]
+            if state.get("finished") or index < current_index:
+                status = "✅ Complete"
+            elif key == stage:
+                status = f"🔄 Running ({done:,}/{total:,})" if total else "🔄 Running"
+            else:
+                status = "⏳ Pending"
+            rows.append({"Stage": label, "Status": status, "What it does": description})
+        st.table(rows)
 
 
 def _runs(root: Path) -> list[Path]:
@@ -75,18 +153,31 @@ def main() -> None:
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temporary:
             temporary.write(uploaded.getbuffer())
             input_path = Path(temporary.name)
-        progress_bar = st.progress(0.0)
+
+        st.subheader("Run overview")
+        st.write({"input file": uploaded.name, "size": f"{uploaded.size / (1024 * 1024):.1f} MB", "supported stages": len(PIPELINE_STAGES)})
+        progress_bar = st.progress(0.0, text="Preparing pipeline…")
         status = st.empty()
+        live_panel = st.empty()
+        state: dict[str, Any] = {"started": time.monotonic(), "stage": None, "done": 0, "total": 0, "finished": False}
+        _render_pipeline_status(st, live_panel, state)
 
         def progress(stage: str, done: int, total: int, message: str) -> None:
-            if total:
-                progress_bar.progress(min(1.0, done / total), text=f"{stage}: {done}/{total}")
+            state.update({"stage": stage, "done": done, "total": total})
+            progress_bar.progress(_overall_progress(stage, done, total), text=f"{stage.title()}: {done:,}/{total:,} frames")
             status.write(message)
+            _render_pipeline_status(st, live_panel, state)
 
-        result = run_pipeline(input_path, root, progress_callback=progress)
-        input_path.unlink(missing_ok=True)
+        try:
+            result = run_pipeline(input_path, root, progress_callback=progress)
+        finally:
+            input_path.unlink(missing_ok=True)
+        state.update({"stage": "finalization", "done": 1, "total": 1, "finished": result.status == "completed"})
+        final_progress = 1.0 if result.status == "completed" else _overall_progress("finalization", 0, 1)
+        progress_bar.progress(final_progress, text="Completed" if result.status == "completed" else "Run failed")
+        _render_pipeline_status(st, live_panel, state)
         if result.status == "completed":
-            st.success(f"Completed {result.frame_count} frames: {result.run_dir}")
+            st.success(f"Completed {result.frame_count:,} frames in {_format_duration(time.monotonic() - state['started'])}: {result.run_dir}")
         else:
             st.error(f"Run failed; inspect manifest: {result.manifest}")
 
