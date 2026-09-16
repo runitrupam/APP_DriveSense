@@ -149,6 +149,9 @@ class NullDetector:
         """Provenance block."""
         return {"engine": "none", "model": None, "device": None, "weights_loaded": False}
 
+    def reset(self) -> None:
+        """No per-frame state to clear."""
+
 
 class YoloObjectDetector:
     """Ultralytics YOLO backend restricted to the required road-scene classes."""
@@ -246,6 +249,9 @@ class YoloObjectDetector:
             "weights_loaded": True,
         }
 
+    def reset(self) -> None:
+        """Stateless inference; nothing to clear between passes."""
+
 
 class MotionObjectDetector:
     """Classical fallback: background subtraction plus shape heuristics.
@@ -333,6 +339,12 @@ class MotionObjectDetector:
             "weights_loaded": False,
             "limitations": "detects only motion relative to the background; low-confidence classes",
         }
+
+    def reset(self) -> None:
+        """Rebuild the background model so a new pass starts clean."""
+        self._subtractor = cv2.createBackgroundSubtractorMOG2(
+            history=self.history, varThreshold=self.var_threshold, detectShadows=False
+        )
 
 
 def build_detector(ctx: RunContext) -> ObjectDetector:

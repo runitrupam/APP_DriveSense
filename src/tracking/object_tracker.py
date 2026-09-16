@@ -226,6 +226,16 @@ class ObjectTracker:
         self.total_observations = 0
         self._velocity_alpha = 0.6
 
+    def reset(self) -> None:
+        """Clear every track so the tracker can serve a fresh pass."""
+        self.tracks.clear()
+        self._counters.clear()
+        self._size_by_frame.clear()
+        self.frame_anomalies.clear()
+        self.finished.clear()
+        self.frames_processed = 0
+        self.total_observations = 0
+
     def _new_track_id(self, class_name: str) -> str:
         """Allocate the next ``class_NNN`` identifier."""
         prefix = ID_PREFIXES.get(class_name, class_name)
