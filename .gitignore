@@ -15,3 +15,10 @@ outputs/*
 # Model weights downloaded at runtime
 *.pt
 *.onnx
+
+graphify-out
+.idea
+.pi-subagents
+AGENTS.md
+
+.slingshot
