@@ -5,15 +5,13 @@ pyyaml>=6.0
 pydantic>=2.5
 psutil>=5.9
 matplotlib>=3.8
-opencv-python-headless>=4.9
+# OpenCV is used by both the pipeline and the YOLO backend.
+opencv-python>=4.9
 streamlit>=1.32
 pytest>=7.4
 
-# PyTorch is installed separately to allow CPU-only wheels:
-# python3 -m pip install --break-system-packages torch torchvision --index-url https://download.pytorch.org/whl/cpu
-# torch>=2.2
-# torchvision>=0.17
-
-# Optional YOLO detector / tracker backend. The pipeline falls back to a
-# classical motion detector when this is unavailable.
-# ultralytics>=8.1
+# Semantic object detection. Without these packages the pipeline falls back to
+# the low-accuracy classical motion detector.
+torch>=2.2
+torchvision>=0.17
+ultralytics>=8.1

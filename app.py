@@ -105,7 +105,15 @@ def _show_run(st: Any, run_dir: Path) -> None:
     manifest_path = run_dir / "run_manifest.json"
     manifest = read_json(manifest_path) if manifest_path.exists() else {}
     metadata = manifest.get("metadata") or {}
-    st.write({"status": manifest.get("status"), "filename": metadata.get("filename"), "fps": metadata.get("fps"), "frame_count": metadata.get("frame_count"), "codec": metadata.get("codec"), "detector": (manifest.get("components") or {}).get("detector", {}).get("engine")})
+    detector = (manifest.get("components") or {}).get("detector", {})
+    detector_engine = detector.get("engine", "unknown")
+    st.write({"status": manifest.get("status"), "filename": metadata.get("filename"), "fps": metadata.get("fps"), "frame_count": metadata.get("frame_count"), "codec": metadata.get("codec"), "detector": detector_engine})
+    if detector_engine != "yolo":
+        st.warning(
+            "This run used the classical motion detector, not semantic object detection. "
+            "Vehicle labels may be false positives. Install ultralytics/torch and rerun "
+            "until the manifest shows detector=yolo."
+        )
 
     final_jsonl = run_dir / "final" / "frame_analysis.jsonl"
     records = list(iter_jsonl(final_jsonl)) if final_jsonl.exists() else []

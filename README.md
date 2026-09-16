@@ -40,8 +40,8 @@ trackers and lane models can be replaced without touching the schema.
 
 - Python 3.11+
 - ffmpeg / ffprobe (metadata, codec probing)
-- See `requirements.txt`. PyTorch CPU wheels are sufficient; CUDA is used
-  automatically when present.
+- See `requirements.txt`. PyTorch CPU wheels are sufficient; CUDA or Apple
+  Metal acceleration is used automatically when available.
 
 ## Installation
 
@@ -49,19 +49,19 @@ trackers and lane models can be replaced without touching the schema.
 # System dependency
 apt-get install -y ffmpeg
 
-# Base dependencies
+# Install all Python dependencies, including the semantic YOLO detector
 python3 -m pip install --break-system-packages -r requirements.txt
 
-# CPU-only PyTorch (smaller download)
-python3 -m pip install --break-system-packages torch torchvision --index-url https://download.pytorch.org/whl/cpu
-
-# Optional: YOLO detector and tracker backend
-python3 -m pip install --break-system-packages ultralytics
+# On Linux, you may install CPU-only PyTorch wheels explicitly if preferred:
+# python3 -m pip install --break-system-packages torch torchvision --index-url https://download.pytorch.org/whl/cpu
 ```
 
-If `ultralytics` or its weights are unavailable, the pipeline automatically
-falls back to a classical motion detector so a run still completes. The detector
-that actually ran is recorded in `run_manifest.json` and in the metrics.
+The default detector is the semantic YOLO backend. If `ultralytics` or its
+weights are unavailable, the pipeline falls back to a classical motion detector
+so a run still completes; that fallback is much less reliable for vehicle
+classification. The detector that actually ran is recorded in `run_manifest.json`
+and in the metrics. Check that `components.detector.engine` is `yolo` before
+trusting vehicle classifications.
 
 ## Usage
 
